@@ -1,17 +1,19 @@
 // Cenário 3: Transmissão por hardware dedicado (UART) + atendimento por polling
 //
-// Estratégia de medição: usa o Timer1 em modo contador livre para
-// contar ciclos de clock entre o início da tentativa de transmissão
-// e o momento em que o byte é efetivamente entregue ao registrador de dados
-// da UART (UDR0), incluindo o tempo de espera ativa (polling) pelo bit
-// UDRE0 (UART Data Register Empty).
+// Estratégia de medição: usa o Timer1 em modo contador livre (sem prescaler)
+// para contar ciclos de clock entre o início da tentativa de transmissão e
+// o momento em que o hardware sinaliza a conclusão da transmissão completa
+// do frame (bit TXC0, Transmit Complete), incluindo start bit, dados e stop
+// bit. Medir o frame completo (e não apenas o registrador de dados ficando
+// livre, bit UDRE0) mantém a métrica comparável com os demais cenários, que
+// também medem a transmissão do frame inteiro.
 
 #define NUM_TRANSMISSIONS 50
 
 void startCycleCounter() {
   TCCR1A = 0;
   TCCR1B = 0;
-  TCCR1B |= (1 << CS10);  // 1 tick do timer = 1 ciclo de clock da CPU
+  TCCR1B |= (1 << CS10);  // sem prescaler: 1 tick do timer = 1 ciclo de clock da CPU
   TCNT1 = 0;
 }
 
@@ -20,13 +22,22 @@ uint16_t readCycleCounter() {
 }
 
 void sendBytePolling(uint8_t data) {
-  // Espera ativa (polling): fica verificando o bit UDRE0 do registrador
-  // de status até que o hardware sinalize que o registrador de dados
-  // está livre para receber um novo byte
+  // Espera ativa (polling): fica verificando o bit UDRE0 do registrador de
+  // status até que o hardware sinalize que o registrador de dados está
+  // livre para receber um novo byte
   while (!(UCSR0A & (1 << UDRE0))) {
     // laço de polling: CPU não faz mais nada além de checar o status
   }
+
+  UCSR0A |= (1 << TXC0);  // limpa a flag TXC0 antes de transmitir (escrever 1 zera o bit)
   UDR0 = data;  // escreve o byte; hardware cuida da serialização sozinho
+
+  // Espera ativa (polling) pela conclusão do frame inteiro, sinalizada pelo
+  // bit TXC0 (Transmit Complete), para manter a medição comparável aos
+  // demais cenários
+  while (!(UCSR0A & (1 << TXC0))) {
+    // laço de polling: CPU aguarda o frame completo ser transmitido
+  }
 }
 
 void setup() {
@@ -44,7 +55,6 @@ void loop() {
     sendBytePolling(testByte);
     uint16_t cycles = readCycleCounter();
 
-    // Log dos resultados via UART (fora da medição, não interfere no overhead medido)
     while (!(UCSR0A & (1 << UDRE0)));
     Serial.print((char)testByte);
     Serial.print(",");
