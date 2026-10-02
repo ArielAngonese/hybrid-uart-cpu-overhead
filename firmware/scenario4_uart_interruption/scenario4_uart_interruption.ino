@@ -1,10 +1,19 @@
 // Cenário 4: Transmissão por hardware dedicado (UART) + atendimento por interrupção
 //
-// Estratégia de medição: usa o Timer1 em modo contador livre para
-// contar ciclos de clock entre o início da escrita no registrador de
+// Estratégia de medição: usa o Timer1 em modo contador livre (sem prescaler)
+// para contar ciclos de clock entre o início da escrita no registrador de
 // dados da UART (UDR0) e o momento em que a interrupção de "transmissão
 // completa" (TXCIE0) é disparada, sinalizando que o hardware terminou de
 // enviar o frame inteiro (incluindo stop bit).
+//
+// Importante: o flag TXC0 (Transmit Complete) permanece setado após uma
+// transmissão até ser explicitamente limpo (escrever 1 nele zera o bit).
+// Por isso, ele é limpo antes de habilitar a interrupção a cada medição,
+// evitando que um flag "velho" (de uma transmissão anterior, como o próprio
+// Serial.print do log) dispare a ISR de forma espúria e corrompa a medição.
+// Pelo mesmo motivo, a interrupção é habilitada apenas durante a janela de
+// medição e desabilitada logo em seguida, antes de qualquer chamada a
+// Serial.print(), já que o log também usa a UART internamente.
 
 #define NUM_TRANSMISSIONS 50
 
@@ -14,7 +23,7 @@ volatile bool transmissionDone = false;
 void startCycleCounter() {
   TCCR1A = 0;
   TCCR1B = 0;
-  TCCR1B |= (1 << CS10);  // 1 tick do timer = 1 ciclo de clock da CPU
+  TCCR1B |= (1 << CS10);  // sem prescaler: 1 tick do timer = 1 ciclo de clock da CPU
   TCNT1 = 0;
 }
 
@@ -30,6 +39,9 @@ ISR(USART_TX_vect) {
 
 void sendByteInterrupt(uint8_t data) {
   transmissionDone = false;
+  UCSR0A |= (1 << TXC0);     // limpa o flag de transmissão completa (escrever 1 zera)
+  UCSR0B |= (1 << TXCIE0);   // habilita a interrupção só para esta medição
+
   startCycleCounter();
   UDR0 = data;  // dispara a transmissão; hardware assume a partir daqui
 
@@ -38,12 +50,13 @@ void sendByteInterrupt(uint8_t data) {
   while (!transmissionDone) {
     // CPU poderia estar fazendo outra coisa aqui; loop de espera é só para fins de teste
   }
+
+  UCSR0B &= ~(1 << TXCIE0);  // desabilita antes de logar via Serial.print,
+                              // evitando que a própria impressão dispare a ISR de novo
 }
 
 void setup() {
   Serial.begin(9600);
-  UCSR0B |= (1 << TXCIE0);  // habilita interrupção de transmissão completa
-
   delay(1000);
   Serial.println("Cenario 4: UART + Interrupcao");
   Serial.println("byte_enviado,ciclos_overhead");
