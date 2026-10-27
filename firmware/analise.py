@@ -1,13 +1,13 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# 1. Leitura dos CSVs com os nomes exatos mostrados na sua pasta
+# 1. Leitura dos CSVs
 df_cenario1 = pd.read_csv('scenario1_bitbanging_polling.csv')
 df_cenario2 = pd.read_csv('scenario2_bitbanging_interruption.csv')
 df_cenario3 = pd.read_csv('scenario3_uart_polling.csv')
 df_cenario4 = pd.read_csv('scenario4_uart_interruption.csv')
 
-# 2. Gerar Estatísticas usando o nome correto da coluna ('ciclos_overhead')
+# 2. Gerar Estatísticas usando o 'ciclos_overhead'
 medias = [
     df_cenario1['ciclos_overhead'].mean(),
     df_cenario2['ciclos_overhead'].mean(),
