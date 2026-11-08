@@ -1,18 +1,20 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# 1. Leitura dos CSVs com os nomes exatos mostrados na sua pasta
+# 1. Leitura dos CSVs
 df_cenario1 = pd.read_csv('scenario1_bitbanging_polling.csv')
 df_cenario2 = pd.read_csv('scenario2_bitbanging_interruption.csv')
 df_cenario3 = pd.read_csv('scenario3_uart_polling.csv')
 df_cenario4 = pd.read_csv('scenario4_uart_interruption.csv')
 
-# 2. Gerar Estatísticas usando o nome correto da coluna ('ciclos_overhead')
+# 2. Gerar Estatísticas usando o 'ciclos_overhead' em milissegundos)
+frequencia_clock = 16000
+
 medias = [
-    df_cenario1['ciclos_overhead'].mean(),
-    df_cenario2['ciclos_overhead'].mean(),
-    df_cenario3['ciclos_overhead'].mean(),
-    df_cenario4['ciclos_overhead'].mean()
+    df_cenario1['ciclos_overhead'].mean() / frequencia_clock,
+    df_cenario2['ciclos_overhead'].mean() / frequencia_clock,
+    df_cenario3['ciclos_overhead'].mean() / frequencia_clock,
+    df_cenario4['ciclos_overhead'].mean() / frequencia_clock
 ]
 
 cenarios = [
@@ -31,13 +33,13 @@ plt.figure(figsize=(10, 6))
 barras = plt.bar(cenarios, medias, color=['red', 'orange', 'blue', 'green'])
 
 plt.title('Comparativo de CPU Overhead por Cenário')
-plt.ylabel('Overhead (Ciclos da CPU)')
+plt.ylabel('Overhead (ms)')
 plt.xlabel('Cenários')
 
 for barra in barras:
     yval = barra.get_height()
     plt.text(barra.get_x() + barra.get_width()/2, yval + (max(medias)*0.01), 
-             f'{yval:.0f}', ha='center', va='bottom')
+             f'{yval:.4f}', ha='center', va='bottom')
 
 plt.savefig('grafico_comparativo.png')
 plt.show()
