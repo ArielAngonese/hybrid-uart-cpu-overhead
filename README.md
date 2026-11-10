@@ -86,5 +86,5 @@ Para instalar as dependências, execute o seguinte comando no terminal:
 ```bash
 pip install pandas matplotlib
 cd [CAMINHO ATÉ A PASTA "firmware"]
-python analise.py
+py analise.py
 ```
